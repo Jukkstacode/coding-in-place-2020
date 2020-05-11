@@ -278,17 +278,20 @@ bool pair_check(int source, int pointed_at)
     }
 
     //If there are arrows pointing from the candidate but they're not the one you're looking for
-    //then iterate through them
+    //then iterate through them, if any are true then keep that number
     bool return_value = false;
     for (int i = 0; i < candidate_count; i++)
     {
         if (locked[source][i] == true)
         {
-            return_value = pair_check(i, pointed_at);
+            if (return_value == false)
+            {
+                return_value = pair_check(i, pointed_at);
+            }
         }
     }
 
-    //Otherwise return false
+    //return the
     return return_value;
 
 }
