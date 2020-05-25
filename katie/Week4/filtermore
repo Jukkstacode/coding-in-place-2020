@@ -1,0 +1,175 @@
+#include "helpers.h"
+#include <math.h>
+#include <stdio.h>
+
+// Convert image to grayscale
+void grayscale(int height, int width, RGBTRIPLE image[height][width])
+{
+    //traverse each pixel (rows x columns)
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            //take the average of the three RGB values. Use (int) and round to ensure value is an int.
+            int average = (int)roundf(((float)image[i][j].rgbtBlue + (float)image[i][j].rgbtGreen + (float)image[i][j].rgbtRed) / 3);
+            //Set each rgb value to the average.
+            //printf("red: %i, green: %i, blue: %i, avg: %i\n", image[i][j].rgbtRed, image[i][j].rgbtGreen, image[i][j].rgbtBlue, average);
+            image[i][j].rgbtBlue = average;
+            image[i][j].rgbtGreen = average;
+            image[i][j].rgbtRed = average;
+            //tyler approach: image[i][j] = (RGBTRIPLE) {average, average, average}; --> this is "casting" the array/values as a rgbtriple
+        }
+    }
+    return;
+}
+
+// Reflect image horizontally
+void reflect(int height, int width, RGBTRIPLE image[height][width])
+{
+    //define a temp struct to hold values RGBTRIPLE temp
+    RGBTRIPLE temp;
+    // traverse all pixels on the left hand side
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < (width / 2); j++)
+        {
+            //store the value of the pixel in temp
+            temp = image[i][j];
+            //set LHS value equal to RHS value
+            image[i][j] = image[i][width - j - 1];
+            //set value of RHS equal to LHS
+            image[i][width - j - 1] = temp;
+        }
+    }
+    return;
+}
+
+// Blur image
+void blur(int height, int width, RGBTRIPLE image[height][width])
+{
+    //establish a copy array up top to save all the blurred pixels. will copy them back in at the end.
+    RGBTRIPLE storage[height][width];
+
+    // traverse all pixels
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            //For each pixel[i][j], initialize trackers
+            float sum_red = 0;
+            float sum_green = 0;
+            float sum_blue = 0;
+            int counter = 0;
+
+            //then, traverse the 3x3 around the pixel
+            for (int p = fmax(0, i - 1); p <= fmin(height - 1, i + 1); p++)
+            {
+                for (int q = fmax(0, j - 1); q <= fmin(width - 1, j + 1); q++)
+                {
+                    //Add the value of each pixel to the sum and increment the counter
+                    sum_red += image[p][q].rgbtRed;
+                    sum_green += image[p][q].rgbtGreen;
+                    sum_blue += image[p][q].rgbtBlue;
+                    counter++;
+                    //printf("sumred: %i, sumgreen: %i, sumblue: %i, counter: %i\n", sum_red, sum_green, sum_blue, counter);
+                }
+            }
+            //set pixel value to average of surrounding pixels
+            //FIX - copy these to storage instead of image
+            storage[i][j].rgbtRed = (int)roundf(sum_red / counter);
+            storage[i][j].rgbtGreen = (int)roundf(sum_green / counter);
+            storage[i][j].rgbtBlue = (int)roundf(sum_blue / counter);
+        }
+    }
+
+    //Now, copy the values from storage back to the image
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            image[i][j].rgbtRed = storage[i][j].rgbtRed;
+            image[i][j].rgbtGreen = storage[i][j].rgbtGreen;
+            image[i][j].rgbtBlue = storage[i][j].rgbtBlue;
+        }
+    }
+    return;
+}
+
+// Detect edges
+void edges(int height, int width, RGBTRIPLE image[height][width])
+{
+    //establish a copy array up top to save new data. will copy them back in at the end.
+    RGBTRIPLE storage[height][width];
+
+    //Define Gx and Gy Sobel arrays for the multiplication
+    int Gx[3][3] = { {-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1} };
+    int Gy[3][3] = { {-1, -2, -1}, {0, 0, 0}, {1, 2, 1} };
+
+    // traverse all pixels
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            //For each pixel[i][j], initialize Gx & Gy sum trackers for each color
+            float Gx_sum_R = 0;
+            float Gx_sum_G = 0;
+            float Gx_sum_B = 0;
+            float Gy_sum_R = 0;
+            float Gy_sum_G = 0;
+            float Gy_sum_B = 0;
+
+            //then, traverse the 3x3 around the pixel
+            for (int p = fmax(0, i - 1); p <= fmin(height - 1, i + 1); p++)
+            {
+                for (int q = fmax(0, j - 1); q <= fmin(width - 1, j + 1); q++)
+                {
+                    //Add to each sum tracker the value at pixel * its counterpart in Gx or Gy matrix
+                    Gx_sum_R += image[p][q].rgbtRed * Gx[1 + p - i][1 + q - j];
+                    Gx_sum_G += image[p][q].rgbtGreen * Gx[1 + p - i][1 + q - j];
+                    Gx_sum_B += image[p][q].rgbtBlue * Gx[1 + p - i][1 + q - j];
+                    Gy_sum_R += image[p][q].rgbtRed * Gy[1 + p - i][1 + q - j];
+                    Gy_sum_G += image[p][q].rgbtGreen * Gy[1 + p - i][1 + q - j];
+                    Gy_sum_B += image[p][q].rgbtBlue * Gy[1 + p - i][1 + q - j];
+                }
+            }
+            //at end of this loop, have a fully summed value for Gx and Gy for each color
+            //still at pixel[i][j]
+
+            //Now take square root of Gx^2 and Gy^2 for each color. Round & make int.
+            int G_Red = (int)roundf(sqrtf(powf(Gx_sum_R, 2) + powf(Gy_sum_R, 2)));
+            int G_Green = (int)roundf(sqrtf(powf(Gx_sum_G, 2) + powf(Gy_sum_G, 2)));
+            int G_Blue = (int)roundf(sqrtf(powf(Gx_sum_B, 2) + powf(Gy_sum_B, 2)));
+
+            //check that each value is 255 max
+            if (G_Red > 255)
+            {
+                G_Red = 255;
+            }
+            if (G_Green > 255)
+            {
+                G_Green = 255;
+            }
+            if (G_Blue > 255)
+            {
+                G_Blue = 255;
+            }
+
+            // Apply to storage value (storage[i][j].rgbtColor) for each color
+            storage[i][j].rgbtRed = G_Red;
+            storage[i][j].rgbtGreen = G_Green;
+            storage[i][j].rgbtBlue = G_Blue;
+        }
+    } //close out pixel traverse
+
+    //Now, copy the values from storage back to the image
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            image[i][j].rgbtRed = storage[i][j].rgbtRed;
+            image[i][j].rgbtGreen = storage[i][j].rgbtGreen;
+            image[i][j].rgbtBlue = storage[i][j].rgbtBlue;
+        }
+    }
+    return;
+}
