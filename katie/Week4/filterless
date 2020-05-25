@@ -1,0 +1,131 @@
+#include "helpers.h"
+#include <math.h>
+#include <stdio.h>
+
+// Convert image to grayscale
+void grayscale(int height, int width, RGBTRIPLE image[height][width])
+{
+    //traverse each pixel (rows x columns)
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            //take the average of the three RGB values. Use (int) and round to ensure value is an int.
+            int average = (int)roundf(((float)image[i][j].rgbtBlue + (float)image[i][j].rgbtGreen + (float)image[i][j].rgbtRed) / 3);
+            //Set each rgb value to the average.
+            //printf("red: %i, green: %i, blue: %i, avg: %i\n", image[i][j].rgbtRed, image[i][j].rgbtGreen, image[i][j].rgbtBlue, average);
+            image[i][j].rgbtBlue = average;
+            image[i][j].rgbtGreen = average;
+            image[i][j].rgbtRed = average;
+        }
+    }
+    return;
+}
+
+// Convert image to sepia
+void sepia(int height, int width, RGBTRIPLE image[height][width])
+{
+    //traverse each pixel (rows x columns)
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            //define sepia variables for each color based on given equation. use int & roundf.
+            int sepiaRed = (int)roundf((.393 * image[i][j].rgbtRed) + (.769 * image[i][j].rgbtGreen) + (.189 * image[i][j].rgbtBlue));
+            int sepiaGreen = (int)roundf((.349 * image[i][j].rgbtRed) + (.686 * image[i][j].rgbtGreen) + (.168 * image[i][j].rgbtBlue));
+            int sepiaBlue = (int)roundf((.272 * image[i][j].rgbtRed) + (.534 * image[i][j].rgbtGreen) + (.131 * image[i][j].rgbtBlue));
+
+            //check that each value is 255 max
+            if (sepiaRed > 255)
+            {
+                sepiaRed = 255;
+            }
+            if (sepiaGreen > 255)
+            {
+                sepiaGreen = 255;
+            }
+            if (sepiaBlue > 255)
+            {
+                sepiaBlue = 255;
+            }
+
+            //then set image values at sepia values
+            image[i][j].rgbtBlue = sepiaBlue;
+            image[i][j].rgbtGreen = sepiaGreen;
+            image[i][j].rgbtRed = sepiaRed;
+        }
+    }
+    return;
+}
+
+// Reflect image horizontally
+void reflect(int height, int width, RGBTRIPLE image[height][width])
+{
+    //define a temp struct to hold values RGBTRIPLE temp
+    RGBTRIPLE temp;
+    // traverse all pixels on the left hand side (to j < (int)width/2)
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < (width / 2); j++)
+        {
+            //store the value of the pixel in temp
+            temp = image[i][j];
+            //set LHS value equal to RHS value
+            image[i][j] = image[i][width - j - 1];
+            //set value of RHS equal to LHS
+            image[i][width - j - 1] = temp;
+        }
+    }
+    return;
+}
+
+// Blur image
+void blur(int height, int width, RGBTRIPLE image[height][width])
+{
+    //FIX - establish a copy array up top to save all the blurred pixels. will copy them back in at the end.
+    RGBTRIPLE storage[height][width];
+
+    // traverse all pixels
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            //For each pixel[i][j], initialize trackers
+            float sum_red = 0;
+            float sum_green = 0;
+            float sum_blue = 0;
+            int counter = 0;
+
+            //then, traverse the 3x3 around the pixel
+            for (int p = fmax(0, i - 1); p <= fmin(height - 1, i + 1); p++)
+            {
+                for (int q = fmax(0, j - 1); q <= fmin(width - 1, j + 1); q++)
+                {
+                    //Add the value of each pixel to the sum and increment the counter
+                    sum_red += image[p][q].rgbtRed;
+                    sum_green += image[p][q].rgbtGreen;
+                    sum_blue += image[p][q].rgbtBlue;
+                    counter++;
+                    //printf("sumred: %i, sumgreen: %i, sumblue: %i, counter: %i\n", sum_red, sum_green, sum_blue, counter);
+                }
+            }
+            //set pixel value to average of surrounding pixels
+            //FIX - copy these to storage instead of image
+            storage[i][j].rgbtRed = (int)roundf(sum_red / counter);
+            storage[i][j].rgbtGreen = (int)roundf(sum_green / counter);
+            storage[i][j].rgbtBlue = (int)roundf(sum_blue / counter);
+        }
+    }
+
+    //Now, copy the values from storage back to the image
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            image[i][j].rgbtRed = storage[i][j].rgbtRed;
+            image[i][j].rgbtGreen = storage[i][j].rgbtGreen;
+            image[i][j].rgbtBlue = storage[i][j].rgbtBlue;
+        }
+    }
+    return;
+}
