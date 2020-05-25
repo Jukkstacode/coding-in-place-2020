@@ -1,0 +1,107 @@
+//Start with the standard library headers
+#include <cs50.h>
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+int find_char_index(char target, string reference_array);
+
+//Main function will intake key string.
+int main(int argc, string key[])
+{
+    // First validate there is one and only one key.
+    if (argc != 2)
+    {
+        printf("Please provide exactly one key.\n");
+        return 1;
+    }
+    // Check for strlen = 26
+    if (strlen(key[1]) != 26)
+    {
+        printf("Key does not have 26 characters.\n");
+        return 1;
+    }
+
+    //Now have to process each character; set up array to store uppercase key
+    char keyupper[26] = {0};
+    for (int i = 0; i < 26; i++)
+    {
+        //Check that all characters are alphabetical
+        if (isalpha(key[1][i]) == 0)
+        {
+            printf("All characters must be alphabetical.\n");
+            return 1;
+        }
+        //Check that no character is a duplicate by copying uppercase key to a new array and check new entrants against existing.
+        else
+        {
+            for (int j = 0; j < 26; j++)
+            {
+                if (toupper(key[1][i]) == keyupper[j])
+                {
+                    printf("Your key has a duplicate character.\n");
+                    return 1;
+                }
+            }
+            keyupper[i] = toupper(key[1][i]);
+        }
+    }
+    //Set up cipher logic. Establish alphabet string for reference and then "keyshift" array to capture the translation between key and alphabet.
+    string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    int keyshift[27];
+    //Cap the string to prevent wonkery.
+    keyshift[26] = '\0';
+
+    //Fill keyshift array with the delta between the integer values.
+    for (int k = 0; k < 26; k++)
+    {
+        keyshift[k] = ((int)keyupper[k] - (int)alphabet[k]);
+    }
+
+    //Now request the input and establish cipher array of equal length.
+    string input = get_string("plaintext: ");
+    int inputlength = strlen(input);
+    char cipher[inputlength + 1];
+    cipher[inputlength] = '\0';
+
+    //Encode string one character at a time:
+    for (int m = 0; m < inputlength; m++)
+    {
+        //Check if character is alphabetical.
+        if (isalpha(input[m]))
+        {
+            //First find index place in the alphabet string.
+            int char_index = find_char_index(toupper(input[m]), alphabet);
+            //Then, find the translation keyshift value at the corresponding place in keyshift array and add to the input value.
+            int cipher_int = (int)input[m] + keyshift[char_index];
+            //Convert back to character.
+            cipher[m] = (char)cipher_int;
+        }
+        //If character is not alphabetic (e.g., punctuation), just pass it through.
+        else
+        {
+            cipher[m] = input[m];
+        }
+    }
+    printf("ciphertext: %s\n", cipher);
+    return 0;
+}
+
+//Function to find a char in an array. go through each item in the reference_array. if the target matches, return index value. if not, increment.
+int find_char_index(char target, string reference_array)
+{
+    int b = 0;
+    do
+    {
+        if (reference_array[b] == target)
+        {
+            return b;
+        }
+        else
+        {
+            b++;
+        }
+    }
+    while (b < strlen(reference_array));
+    return 0;
+}
