@@ -1,0 +1,89 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+
+typedef uint8_t BYTE;
+
+int main(int argc, char *argv[])
+{
+    //Check for usage
+    if (argc != 2)
+    {
+        printf("Usage: ./recover image\n");
+        return 1;
+    }
+
+    //Open the memory card. "card" variable is a pointer!!
+    FILE *card = fopen(argv[1], "r");
+
+    //if card opening fails, alert & end program
+    if (card == NULL)
+    {
+        printf("error with card\n");
+        return 1;
+    }
+
+    // fseek(card, 0, SEEK_END); // seek to end of file
+    // printf("cardsize: %li\n", ftell(card)); // get current file pointer
+    // fseek(card, 0, SEEK_SET);
+
+    // Establish a jpeg counter
+    int jpg_count = 0;
+
+    //establish string for jpeg name and FILE for img
+    char jpgname[8];
+    FILE *img = NULL;
+
+    // Establish buffer of 512 chars (bytes) to read card into - initialize using malloc but set all to zero;
+    BYTE buffer[512];
+    int block_size;
+
+    do
+    {
+        //Read 512 characters from the card into the buffer.
+        block_size = fread(buffer, 1, 512, card);
+        if (block_size != 512)
+        {
+            fclose(img);
+            fclose(card);
+            return 0;
+        }
+
+        //printf("Loop: %i, Buf1: %i, Buf2: %i, Buf3: %i, Buf4: %i\n", loopcount, buffer[0], buffer[1], buffer[2], buffer[3]);
+
+        //check the first four bytes of the buffer to see if new jpg
+        if (buffer[0] == 0xff && buffer[1] == 0xd8 && buffer[2] == 0xff && (buffer[3] & 0xf0) == 0xe0)
+        {
+            //printf("Found a jpeg\n");
+            //printf("jpg place: %li\n", ftell(card));
+            if (img == NULL)
+            {
+                //open new file and write to it
+                sprintf(jpgname, "%03i.jpg", jpg_count);
+                img = fopen(jpgname, "a");
+                fwrite(buffer, 1, 512, img);
+            }
+            //if not the first jpeg, close previous file and then create new jpg file
+            else
+            {
+                //close previous file and increment jpg counter
+                fclose(img);
+                jpg_count++;
+
+                //open new file and write to it
+                sprintf(jpgname, "%03i.jpg", jpg_count);
+                img = fopen(jpgname, "a");
+                fwrite(buffer, 1, 512, img);
+            }
+        }
+        else
+        {
+            if (img != NULL)
+            {
+                fwrite(buffer, 1, 512, img);
+            }
+        }
+    }
+    //do this while you're still finding full blocks
+    while (block_size == 512);
+}

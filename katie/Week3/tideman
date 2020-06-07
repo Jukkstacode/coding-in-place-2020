@@ -1,0 +1,308 @@
+#include <cs50.h>
+#include <stdio.h>
+#include <string.h>
+
+// Max number of candidates
+#define MAX 9
+
+// two dimensional array - preferences[i][j] is number of voters who prefer i over j
+int preferences[MAX][MAX];
+
+//another 2D array - locked[i][j] means i is locked in over j
+bool locked[MAX][MAX];
+
+// Each pair has a winner, loser
+typedef struct
+{
+    int winner;
+    int loser;
+}
+pair;
+
+// Array of candidates
+string candidates[MAX];
+pair pairs[MAX * (MAX - 1) / 2];
+
+int pair_count;
+int candidate_count;
+
+// Function prototypes
+bool vote(int rank, string name, int ranks[]);
+void record_preferences(int ranks[]);
+void add_pairs(void);
+void sort_pairs(void);
+void lock_pairs(void);
+void print_winner(void);
+bool no_cycle(int locker, int lockee);
+
+int main(int argc, string argv[])
+{
+    // Check for invalid usage
+    if (argc < 2)
+    {
+        printf("Usage: tideman [candidate ...]\n");
+        return 1;
+    }
+
+    // Populate array of candidates
+    candidate_count = argc - 1;
+    if (candidate_count > MAX)
+    {
+        printf("Maximum number of candidates is %i\n", MAX);
+    }
+    //Populates array of candidates with your inputs
+    for (int i = 0; i < candidate_count; i++)
+    {
+        candidates[i] = argv[i + 1];
+    }
+
+    // //CHECK - print out candidate array
+    // printf("Candidate_check:\n");
+    // for (int i = 0; i < candidate_count; i++)
+    // {
+    //     printf("%s\n", candidates[i]);
+    // }
+
+    // Clear graph of locked in pairs
+    for (int i = 0; i < candidate_count; i++)
+    {
+        for (int j = 0; j < candidate_count; j++)
+        {
+            locked[i][j] = false;
+        }
+    }
+
+    //CHECK - print out locked array
+    //printf("Locked_cleared:\n");
+    for (int i = 0; i < candidate_count; i++)
+    {
+        for (int j = 0; j < candidate_count; j++)
+        {
+            printf("%d ", locked[i][j]);
+        }
+        printf("\n");
+    }
+
+    pair_count = 0;
+    int voter_count = get_int("Number of voters: ");
+
+    // Query for votes - go through each voter
+    for (int i = 0; i < voter_count; i++)
+    {
+        // array with one spot for each candidate
+        //ranks[i] is voter's ith preference, as communicated by index of candidate they have in that spot
+        int ranks[candidate_count];
+
+        // Query for each rank - gather inputs on preferences
+        for (int j = 0; j < candidate_count; j++)
+        {
+            string name = get_string("Rank %i: ", j + 1);
+
+            if (!vote(j, name, ranks))
+            {
+                printf("Invalid vote.\n");
+                return 3;
+            }
+        }
+
+        //CHECK - print ranks
+        //printf("Voter ranks: ");
+        for (int j = 0; j < candidate_count; j++)
+        {
+            printf("%i ", ranks[j]);
+        }
+
+        //For each voter, record those preferences.
+        record_preferences(ranks);
+        //Then print blank line to delineate from next voter.
+        printf("\n");
+    }
+
+    //CHECK - print preferences array
+    //printf("Preferences array:\n");
+    for (int i = 0; i < candidate_count; i++)
+    {
+        for (int j = 0; j < candidate_count; j++)
+        {
+            printf("%i ", preferences[i][j]);
+        }
+        printf("\n");
+    }
+
+    //At this point, all voting is done and it's time to find the winner.
+    add_pairs();
+
+    //CHECK - print pairs array
+    //printf("Unsorted pairs:\n");
+    for (int i = 0; i < pair_count; i++)
+    {
+        printf("%i, %i\n", pairs[i].winner, pairs[i].loser);
+    }
+
+    sort_pairs();
+
+    //CHECK - print pairs array *again*
+    //printf("Sorted pairs:\n");
+    for (int i = 0; i < pair_count; i++)
+    {
+        printf("%i, %i\n", pairs[i].winner, pairs[i].loser);
+    }
+
+    lock_pairs();
+
+    //CHECK - print locked array
+    //printf("Locked_updated:\n");
+    for (int i = 0; i < candidate_count; i++)
+    {
+        for (int j = 0; j < candidate_count; j++)
+        {
+            printf("%d ", locked[i][j]);
+        }
+        printf("\n");
+    }
+
+    print_winner();
+    return 0;
+}
+
+// Update ranks given a new vote
+bool vote(int rank, string name, int ranks[])
+{
+    //for each voter preference, go through candidate list and find their index.
+    for (int k = 0; k < candidate_count; k++)
+    {
+        if (strcmp(candidates[k], name) == 0)
+        {
+            //Once candidate index is found, check that voter hasn't already voted for that candidate.
+            for (int m = 0; m < rank; m++)
+            {
+                if (ranks[m] == k)
+                {
+                    return false;
+                }
+            }
+            ranks[rank] = k;
+            return true;
+        }
+    }
+    return false;
+}
+// QUESTION - how does ranks[] get cleared? printf later to see
+
+// Update preferences given one voter's ranks
+void record_preferences(int ranks[])
+{
+    for (int i = 0; i < (candidate_count - 1); i++)
+    {
+        for (int j = i + 1; j < candidate_count; j++)
+        {
+            preferences[ranks[i]][ranks[j]]++;
+        }
+    }
+    return;
+}
+
+// Record pairs of candidates where one is preferred over the other
+void add_pairs(void)
+{
+    for (int p = 0; p < candidate_count; p++)
+    {
+        for (int q = 0; q < candidate_count; q++) //UPDATE POSSIBLE - can do this with q < p and will just compare along lower half of index
+        {
+            //ideally would add - "if p = q, skip", but it's not strictly necessary
+            if (preferences[p][q] > preferences[q][p])
+            {
+                //THIS IS KIND OF DODGY. MAY NEED TO COME BACK AND CHECK
+                pairs[pair_count].winner = p;
+                pairs[pair_count].loser = q;
+                pair_count++;
+            }
+            //don't think I need - "else if (preferences[p][q] == preferences[q][p]), no winner, skip"
+        }
+    }
+    return;
+}
+
+// Sort pairs in decreasing order by strength of victory
+void sort_pairs(void)
+{
+    for (int i = 0; i < pair_count; i++)
+    {
+        int max_value = 0;
+        int max_value_index;
+
+        //find the max value by iterating through all values (victory strength of winner at position j) from i to end
+        for (int j = i; j < pair_count; j++)
+        {
+            if (preferences[pairs[j].winner][pairs[j].loser] > max_value)
+            {
+                max_value = preferences[pairs[j].winner][pairs[j].loser];
+                //record where you found the max value
+                max_value_index = j;
+            }
+        }
+        //Once you have max value, pull the value at position max_value_index and swap to front using "storage" pair to facilitate swap
+        pair storage = pairs[i];
+        pairs[i] = pairs[max_value_index];
+        pairs[max_value_index] = storage;
+    }
+    return;
+}
+
+// Lock pairs into the candidate graph in order, without creating cycles
+void lock_pairs(void)
+{
+    // //for each pair, in order:
+    for (int i = 0; i < pair_count; i++)
+    {
+        if (no_cycle(pairs[i].winner, pairs[i].loser))
+        {
+            locked[pairs[i].winner][pairs[i].loser] = true;
+        }
+        else
+        {
+            locked[pairs[i].winner][pairs[i].loser] = false;
+        }
+    }
+    return;
+}
+
+// Print the winner of the election
+void print_winner(void)
+{
+    for (int col = 0; col < candidate_count; col++)
+    {
+        int true_count = 0;
+        for (int row = 0; row < candidate_count; row++)
+        {
+            if (locked[row][col] == 1)
+            {
+                true_count++;
+            }
+        }
+        if (true_count == 0)
+        {
+            printf("%s\n", candidates[col]);
+        }
+    }
+    return;
+}
+
+bool no_cycle(int locker, int lockee)
+{
+    if (locker == lockee)
+    {
+        return false;
+    }
+    for (int i = 0; i < candidate_count; i++)    //for the given column (lockee), go through each row (lockers)
+    {
+        if (locked[i][locker] == true)      //if the item in that position is locked
+        {
+            if (!no_cycle(i, lockee)) //run program on its lockers
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
