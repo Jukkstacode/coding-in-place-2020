@@ -1,0 +1,14 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct node*
+{
+    int data;
+    struct node* next;
+}
+node;
+
+int main (void)
+{
+    printf("what the fuck\n");
+}
